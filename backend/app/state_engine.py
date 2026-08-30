@@ -2,6 +2,8 @@ from enum import Enum
 
 from app.models import EventType, PaymentEvent
 
+from app.database import get_events
+
 
 class PaymentState(str, Enum):
     UNKNOWN = "unknown"
@@ -53,8 +55,21 @@ class StateEngine:
 
     def get_state(self, payment_id: str) -> PaymentState:
 
-        events = self.events.get(payment_id, [])
-
+        rows = get_events(payment_id)
+        events = [
+            PaymentEvent(
+                event_id=row["event_id"],
+                payment_id=row["payment_id"],
+                order_id=row["order_id"],
+                event_type=EventType(row["event_type"]),
+                amount=row["amount"],
+                currency=row["currency"],
+                event_timestamp=row["event_timestamp"],
+                received_timestamp=row["received_timestamp"],
+                source=row["source"],
+                )
+                for row in rows
+                ]
         if not events:
             return PaymentState.UNKNOWN
 

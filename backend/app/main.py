@@ -1,9 +1,8 @@
 from fastapi import FastAPI
-
-from app.models import PaymentEvent
+from app.models import EventType, PaymentEvent
 from app.state_engine import StateEngine
 from app.conflict_detector import ConflictDetector
-from app.database import initialize_database, save_event
+from app.database import initialize_database, save_event, get_events
 
 
 app = FastAPI(
@@ -51,12 +50,25 @@ def process_event(event: PaymentEvent):
         "current_state": result["state"],
         "duplicate": result["duplicate"]
     }
-
-
 @app.get("/payments/{payment_id}/analysis")
 def analyze_payment(payment_id: str):
 
-    events = state_engine.events.get(payment_id, [])
+    rows = get_events(payment_id)
+
+    events = [
+        PaymentEvent(
+            event_id=row["event_id"],
+            payment_id=row["payment_id"],
+            order_id=row["order_id"],
+            event_type=EventType(row["event_type"]),
+            amount=row["amount"],
+            currency=row["currency"],
+            event_timestamp=row["event_timestamp"],
+            received_timestamp=row["received_timestamp"],
+            source=row["source"],
+        )
+        for row in rows
+    ]
 
     state = state_engine.get_state(payment_id)
 
@@ -68,7 +80,10 @@ def analyze_payment(payment_id: str):
     return {
         "payment_id": payment_id,
         "event_count": len(events),
-        "event_ids": [event.event_id for event in events],
+        "event_ids": [
+            event.event_id
+            for event in events
+        ],
         "current_state": state,
         "conflict_count": len(conflicts),
         "conflicts": conflicts

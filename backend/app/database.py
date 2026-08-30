@@ -68,3 +68,18 @@ def save_event(event):
 
     connection.commit()
     connection.close()
+
+
+def get_events(payment_id):
+    connection = get_connection()
+    rows = connection.execute(
+        """
+        SELECT *
+        FROM payment_events
+        WHERE payment_id = ?
+        ORDER BY event_timestamp ASC
+        """,
+        (payment_id,)
+        ).fetchall()
+    connection.close()
+    return rows
