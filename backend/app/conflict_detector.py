@@ -23,6 +23,7 @@ class ConflictDetector:
     ) -> List[Conflict]:
 
         conflicts = []
+        seen_event_ids = set()
 
         if not events:
             return conflicts
@@ -37,6 +38,18 @@ class ConflictDetector:
         )
 
         payment_id = events[0].payment_id
+        for event in events:
+            if event.event_id in seen_event_ids:
+                conflicts.append(
+                    Conflict(
+                        conflict_type="DUPLICATE_EVENT",
+                        severity="MEDIUM",
+                        message=f"Duplicate event detected: {event.event_id}",
+                        payment_id=payment_id
+                    )
+                )
+            else:
+                seen_event_ids.add(event.event_id)
 
         # --------------------------------------------------
         # BUILD STATE TRANSITIONS

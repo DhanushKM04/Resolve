@@ -19,6 +19,7 @@ class StateEngine:
     def __init__(self):
         self.events = {}
         self.processed_event_ids = set()
+        self.duplicate_events = {}
 
     def add_event(self, event: PaymentEvent):
 
@@ -27,9 +28,16 @@ class StateEngine:
         # ---------------------------------------------
 
         if event.event_id in self.processed_event_ids:
+            payment_id = event.payment_id
+
+            if payment_id not in self.duplicate_events:
+                self.duplicate_events[payment_id] = []
+
+            self.duplicate_events[payment_id].append(event.event_id)
             return {
                 "state": self.get_state(event.payment_id),
-                "duplicate": True
+                "duplicate": True,
+                "event_id": event.event_id
             }
 
         self.processed_event_ids.add(event.event_id)

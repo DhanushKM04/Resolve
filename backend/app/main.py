@@ -43,8 +43,8 @@ def test_event(event: PaymentEvent):
 def process_event(event: PaymentEvent):
 
     result = state_engine.add_event(event)
-    save_event(event)
-
+    if not result["duplicate"]:
+        save_event(event)
     return {
        "payment_id": event.payment_id,
         "current_state": result["state"],
@@ -76,6 +76,10 @@ def analyze_payment(payment_id: str):
         events,
         state
     )
+    duplicates = state_engine.duplicate_events.get(
+    payment_id,
+    []
+    )
 
     return {
         "payment_id": payment_id,
@@ -85,6 +89,14 @@ def analyze_payment(payment_id: str):
             for event in events
         ],
         "current_state": state,
-        "conflict_count": len(conflicts),
-        "conflicts": conflicts
-    }
+        "conflict_count": len(conflicts) + len(duplicates),
+        "conflicts": conflicts + [
+            {
+                "conflict_type": "DUPLICATE_EVENT",
+                "severity": "MEDIUM",
+                "message": f"Duplicate event detected: {event_id}",
+                "payment_id": payment_id
+            }
+            for event_id in duplicates
+        ]
+            }
