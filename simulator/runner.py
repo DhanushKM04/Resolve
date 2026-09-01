@@ -28,9 +28,9 @@ API_URL = "http://127.0.0.1:8000"
 
 
 def send_events(events):
+    api_failed = False
 
     for event in events:
-
         response = requests.post(
             f"{API_URL}/events/process",
             json=event.model_dump(mode="json")
@@ -41,6 +41,7 @@ def send_events(events):
                 f"❌ Event failed: "
                 f"{response.status_code}"
             )
+            api_failed = True
 
     payment_id = events[0].payment_id
 
@@ -48,7 +49,21 @@ def send_events(events):
         f"{API_URL}/payments/{payment_id}/analysis"
     )
 
-    return analysis_response.json()
+    if analysis_response.status_code != 200:
+        print(
+            f"❌ Analysis failed: "
+            f"{analysis_response.status_code}"
+        )
+        return {
+            "api_failed": True
+        }
+
+    result = analysis_response.json()
+
+    if api_failed:
+        result["api_failed"] = True
+
+    return result
 
 
 def run_scenario(name, generator, expected_conflict):
@@ -76,7 +91,7 @@ def run_scenario(name, generator, expected_conflict):
         f"Conflicts found:   {result['conflict_count']}"
     )
 
-    if actual_conflict == expected_conflict:
+    if not result.get("api_failed", False) and actual_conflict == expected_conflict:
 
         print("RESULT:            ✅ PASS")
 
@@ -142,7 +157,6 @@ def main():
             generator,
             expected_conflict
         )
-
 
 if __name__ == "__main__":
     main()
