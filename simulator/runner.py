@@ -65,8 +65,13 @@ def send_events(events):
 
     return result
 
+total_tests = 0
+passed_tests = 0
 
 def run_scenario(name, generator, expected_conflict):
+
+    global total_tests, passed_tests
+    total_tests += 1
 
     print("\n")
     print("=" * 65)
@@ -93,6 +98,7 @@ def run_scenario(name, generator, expected_conflict):
 
     if not result.get("api_failed", False) and actual_conflict == expected_conflict:
 
+        passed_tests += 1
         print("RESULT:            ✅ PASS")
 
     else:
@@ -157,6 +163,18 @@ def main():
             generator,
             expected_conflict
         )
+
+    print("\n")
+    print("=" * 65)
+    print("EVALUATION SUMMARY")
+    print("=" * 65)
+
+    print(f"Total tests:        {total_tests}")
+    print(f"Passed tests:       {passed_tests}")
+
+    if total_tests > 0:
+        accuracy = (passed_tests / total_tests) * 100
+        print(f"Accuracy:           {accuracy:.2f}%")
 
 if __name__ == "__main__":
     main()
