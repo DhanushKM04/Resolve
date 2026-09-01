@@ -3,6 +3,7 @@ from app.models import EventType, PaymentEvent
 from app.state_engine import StateEngine
 from app.conflict_detector import ConflictDetector
 from app.database import initialize_database, save_event, get_events, mark_duplicate
+from app.investigator import PaymentInvestigator
 
 
 app = FastAPI(
@@ -14,6 +15,7 @@ app = FastAPI(
 state_engine = StateEngine()
 initialize_database()
 conflict_detector = ConflictDetector()
+investigator = PaymentInvestigator()
 
 
 @app.get("/")
@@ -83,6 +85,12 @@ def analyze_payment(payment_id: str):
         events,
         state
     )
+
+    investigation = investigator.investigate(
+    events,
+    conflicts
+    )
+
     duplicates = state_engine.duplicate_events.get(
     payment_id,
     []
@@ -105,5 +113,6 @@ def analyze_payment(payment_id: str):
                 "payment_id": payment_id
             }
             for event_id in duplicates
-        ]
-            }
+        ],
+        "investigation": investigation
+    }
