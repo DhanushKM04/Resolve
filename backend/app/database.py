@@ -25,12 +25,23 @@ def initialize_database():
             currency TEXT NOT NULL,
             event_timestamp TEXT NOT NULL,
             received_timestamp TEXT NOT NULL,
-            source TEXT NOT NULL
+            source TEXT NOT NULL,
+            is_duplicate INTEGER NOT NULL DEFAULT 0
         )
         """
     )
 
     connection.commit()
+    try:
+        connection.execute(
+            """
+            ALTER TABLE payment_events
+            ADD COLUMN is_duplicate INTEGER NOT NULL DEFAULT 0
+            """
+        )
+        connection.commit()
+    except sqlite3.OperationalError:
+        pass
     connection.close()
 
 
@@ -49,9 +60,10 @@ def save_event(event):
             currency,
             event_timestamp,
             received_timestamp,
-            source
+            source,
+            is_duplicate
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             event.event_id,
@@ -63,6 +75,7 @@ def save_event(event):
             event.event_timestamp.isoformat(),
             event.received_timestamp.isoformat(),
             event.source,
+            0
         )
     )
 
@@ -83,3 +96,36 @@ def get_events(payment_id):
         ).fetchall()
     connection.close()
     return rows
+
+def mark_duplicate(event_id):
+
+    connection = get_connection()
+
+    connection.execute(
+        """
+        UPDATE payment_events
+        SET is_duplicate = 1
+        WHERE event_id = ?
+        """,
+        (event_id,)
+    )
+
+    connection.commit()
+    connection.close()
+
+def event_exists(event_id):
+
+    connection = get_connection()
+
+    row = connection.execute(
+        """
+        SELECT 1
+        FROM payment_events
+        WHERE event_id = ?
+        """,
+        (event_id,)
+    ).fetchone()
+
+    connection.close()
+
+    return row is not None

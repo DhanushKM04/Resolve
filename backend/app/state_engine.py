@@ -2,7 +2,7 @@ from enum import Enum
 
 from app.models import EventType, PaymentEvent
 
-from app.database import get_events
+from app.database import get_events, event_exists
 
 
 class PaymentState(str, Enum):
@@ -27,7 +27,7 @@ class StateEngine:
         # IDEMPOTENCY CHECK
         # ---------------------------------------------
 
-        if event.event_id in self.processed_event_ids:
+        if event.event_id in self.processed_event_ids or event_exists(event.event_id):
             payment_id = event.payment_id
 
             if payment_id not in self.duplicate_events:

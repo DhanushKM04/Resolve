@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from app.models import EventType, PaymentEvent
 from app.state_engine import StateEngine
 from app.conflict_detector import ConflictDetector
-from app.database import initialize_database, save_event, get_events
+from app.database import initialize_database, save_event, get_events, mark_duplicate
 
 
 app = FastAPI(
@@ -40,16 +40,23 @@ def test_event(event: PaymentEvent):
 
 
 @app.post("/events/process")
+
 def process_event(event: PaymentEvent):
 
     result = state_engine.add_event(event)
-    if not result["duplicate"]:
+
+    if result["duplicate"]:
+        mark_duplicate(event.event_id)
+    else:
         save_event(event)
+        result["state"] = state_engine.get_state(event.payment_id)
+
     return {
-       "payment_id": event.payment_id,
+        "payment_id": event.payment_id,
         "current_state": result["state"],
         "duplicate": result["duplicate"]
     }
+
 @app.get("/payments/{payment_id}/analysis")
 def analyze_payment(payment_id: str):
 
