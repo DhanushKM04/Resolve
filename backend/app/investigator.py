@@ -1,42 +1,109 @@
+import os
+from dotenv import load_dotenv
+from google import genai
+
+
+load_dotenv()
+
+
 class PaymentInvestigator:
+
+    def __init__(self):
+        self.api_key = os.getenv("GEMINI_API_KEY")
+
+        if not self.api_key:
+            raise RuntimeError(
+                "GEMINI_API_KEY is not configured."
+            )
+
+        self.client = genai.Client(
+            api_key=self.api_key
+        )
 
     def investigate(self, events, conflicts):
 
-        investigation = {
-            "summary": "",
-            "root_cause": "",
-            "evidence": [],
-            "recommendation": ""
-        }
-
-        if not conflicts:
-            investigation["summary"] = (
-                "No payment inconsistencies detected."
-            )
-            return investigation
-
-        first_conflict = conflicts[0]
-
-        investigation["summary"] = (
-            f"Detected {len(conflicts)} payment conflict(s)."
-        )
-
-        investigation["root_cause"] = (
-            first_conflict.message
-        )
+        evidence = []
 
         for event in events:
-            investigation["evidence"].append(
+            evidence.append(
                 {
                     "event_id": event.event_id,
                     "event_type": event.event_type.value,
-                    "event_timestamp": event.event_timestamp.isoformat()
+                    "event_timestamp": (
+                        event.event_timestamp.isoformat()
+                    )
                 }
             )
 
-        investigation["recommendation"] = (
-            "Review the conflicting event source and "
-            "downstream payment state synchronization."
-        )
+        if not conflicts:
+            return {
+                "summary": "No payment inconsistencies detected.",
+                "root_cause": "",
+                "evidence": evidence,
+                "recommendation": ""
+            }
 
-        return investigation
+        conflict_data = [
+            {
+                "conflict_type": conflict.conflict_type,
+                "severity": conflict.severity,
+                "message": conflict.message
+            }
+            for conflict in conflicts
+        ]
+
+        prompt = f"""
+You are a payment systems investigator.
+
+Analyze this synthetic payment transaction.
+
+CONFLICTS:
+{conflict_data}
+
+EVENT EVIDENCE:
+{evidence}
+
+Return a concise investigation with exactly these sections:
+
+SUMMARY:
+ROOT CAUSE:
+RECOMMENDATION:
+
+Do not invent facts.
+Use only the supplied evidence.
+Keep the response under 150 words.
+"""
+
+        try:
+            response = self.client.models.generate_content(
+                model="gemini-3.5-flash-lite",
+                contents=prompt
+            )
+
+            ai_text = response.text.strip()
+            recommendation = ""
+            if "RECOMMENDATION:" in ai_text:
+                recommendation = ai_text.split(
+                    "RECOMMENDATION:", 1
+                    )[1].strip()
+
+            return {
+                "summary": ai_text,
+                "root_cause": conflicts[0].message,
+                "evidence": evidence,
+                "recommendation": recommendation
+            }
+
+        except Exception:
+            # Safe fallback if Gemini is unavailable
+            return {
+                "summary": (
+                    f"Detected {len(conflicts)} payment conflict(s)."
+                ),
+                "root_cause": conflicts[0].message,
+                "evidence": evidence,
+                "recommendation": (
+                    "Review the conflicting event source and "
+                    "downstream payment state synchronization."
+                )
+            }
