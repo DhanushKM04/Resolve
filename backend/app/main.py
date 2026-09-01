@@ -5,7 +5,6 @@ from app.conflict_detector import ConflictDetector
 from app.database import initialize_database, save_event, get_events, mark_duplicate
 from app.investigator import PaymentInvestigator
 
-
 app = FastAPI(
     title="Resolve",
     description="AI-powered payment state intelligence",
@@ -58,6 +57,7 @@ def process_event(event: PaymentEvent):
         "current_state": result["state"],
         "duplicate": result["duplicate"]
     }
+
 
 @app.get("/payments/{payment_id}/analysis")
 def analyze_payment(payment_id: str):
@@ -116,3 +116,11 @@ def analyze_payment(payment_id: str):
         ],
         "investigation": investigation
     }
+
+
+@app.get("/stats/ai")
+def get_ai_stats():
+    from app import investigator
+    return {
+        "gemini_calls": investigator.ai_call_count
+        }

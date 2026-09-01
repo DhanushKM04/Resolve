@@ -2,8 +2,9 @@ import os
 from dotenv import load_dotenv
 from google import genai
 
-
 load_dotenv()
+
+ai_call_count = 0
 
 
 class PaymentInvestigator:
@@ -73,6 +74,8 @@ Do not invent facts.
 Use only the supplied evidence.
 Keep the response under 150 words.
 """
+        global ai_call_count
+        ai_call_count += 1
 
         try:
             response = self.client.models.generate_content(

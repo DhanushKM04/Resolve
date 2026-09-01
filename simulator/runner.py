@@ -68,6 +68,10 @@ def send_events(events):
 total_tests = 0
 passed_tests = 0
 
+benchmark_total = 0
+benchmark_expected_conflicts = 0
+benchmark_detected_conflicts = 0
+
 def run_scenario(name, generator, expected_conflict):
 
     global total_tests, passed_tests
@@ -120,6 +124,60 @@ def run_scenario(name, generator, expected_conflict):
                 f"     {conflict['message']}"
             )
 
+def run_benchmark(iterations=100):
+    global benchmark_total
+    global benchmark_expected_conflicts
+    global benchmark_detected_conflicts
+
+    benchmark_scenarios = [
+        (normal_payment, False),
+        (failed_payment, False),
+        (invalid_capture_failure, True),
+        (order_paid_without_capture, True),
+        (out_of_order_payment, False),
+    ]
+
+    print("\n")
+    print("=" * 65)
+    print("LARGE-SCALE BENCHMARK")
+    print("=" * 65)
+
+    for _ in range(iterations):
+
+        for generator, expected_conflict in benchmark_scenarios:
+
+            events = generator()
+            result = send_events(events)
+
+            benchmark_total += 1
+
+            if expected_conflict:
+                benchmark_expected_conflicts += 1
+
+            if result.get("conflict_count", 0) > 0:
+                benchmark_detected_conflicts += 1
+
+    print(f"Benchmark tests:          {benchmark_total}")
+    print(
+        f"Expected conflicts:       "
+        f"{benchmark_expected_conflicts}"
+    )
+    print(
+        f"Detected conflicts:       "
+        f"{benchmark_detected_conflicts}"
+    )
+
+    if benchmark_expected_conflicts > 0:
+
+        conflict_accuracy = (
+            benchmark_detected_conflicts
+            / benchmark_expected_conflicts
+        ) * 100
+
+        print(
+            f"Conflict detection rate:  "
+            f"{conflict_accuracy:.2f}%"
+        )
 
 def main():
 
@@ -156,6 +214,7 @@ def main():
         ),
     ]
 
+    # Run the five core scenarios first
     for name, generator, expected_conflict in scenarios:
 
         run_scenario(
@@ -164,6 +223,7 @@ def main():
             expected_conflict
         )
 
+    # Print core evaluation
     print("\n")
     print("=" * 65)
     print("EVALUATION SUMMARY")
@@ -175,6 +235,10 @@ def main():
     if total_tests > 0:
         accuracy = (passed_tests / total_tests) * 100
         print(f"Accuracy:           {accuracy:.2f}%")
+
+    # Run large-scale benchmark
+    run_benchmark(iterations=20)
+
 
 if __name__ == "__main__":
     main()
