@@ -27,7 +27,7 @@ from generator import (
 API_URL = "http://127.0.0.1:8000"
 
 
-def send_events(events):
+def send_events(events, include_ai=True):
     api_failed = False
 
     for event in events:
@@ -46,7 +46,8 @@ def send_events(events):
     payment_id = events[0].payment_id
 
     analysis_response = requests.get(
-        f"{API_URL}/payments/{payment_id}/analysis"
+        f"{API_URL}/payments/{payment_id}/analysis",
+        params={"include_ai": include_ai}
     )
 
     if analysis_response.status_code != 200:
@@ -69,8 +70,10 @@ total_tests = 0
 passed_tests = 0
 
 benchmark_total = 0
-benchmark_expected_conflicts = 0
-benchmark_detected_conflicts = 0
+true_positives = 0
+true_negatives = 0
+false_positives = 0
+false_negatives = 0
 
 def run_scenario(name, generator, expected_conflict):
 
@@ -126,8 +129,10 @@ def run_scenario(name, generator, expected_conflict):
 
 def run_benchmark(iterations=100):
     global benchmark_total
-    global benchmark_expected_conflicts
-    global benchmark_detected_conflicts
+    global true_positives
+    global true_negatives
+    global false_positives
+    global false_negatives
 
     benchmark_scenarios = [
         (normal_payment, False),
@@ -143,41 +148,81 @@ def run_benchmark(iterations=100):
     print("=" * 65)
 
     for _ in range(iterations):
-
         for generator, expected_conflict in benchmark_scenarios:
 
             events = generator()
-            result = send_events(events)
+
+            # AI deliberately disabled during benchmark
+            result = send_events(events, include_ai=False)
 
             benchmark_total += 1
 
-            if expected_conflict:
-                benchmark_expected_conflicts += 1
+            detected_conflict = result.get("conflict_count", 0) > 0
 
-            if result.get("conflict_count", 0) > 0:
-                benchmark_detected_conflicts += 1
+            if expected_conflict and detected_conflict:
+                true_positives += 1
 
-    print(f"Benchmark tests:          {benchmark_total}")
-    print(
-        f"Expected conflicts:       "
-        f"{benchmark_expected_conflicts}"
+            elif not expected_conflict and not detected_conflict:
+                true_negatives += 1
+
+            elif not expected_conflict and detected_conflict:
+                false_positives += 1
+
+            elif expected_conflict and not detected_conflict:
+                false_negatives += 1
+
+    # ===============================
+    # METRICS
+    # ===============================
+
+    total_predictions = (
+        true_positives
+        + true_negatives
+        + false_positives
+        + false_negatives
     )
-    print(
-        f"Detected conflicts:       "
-        f"{benchmark_detected_conflicts}"
+
+    accuracy = (
+        (true_positives + true_negatives)
+        / total_predictions
+        * 100
+        if total_predictions > 0
+        else 0
     )
 
-    if benchmark_expected_conflicts > 0:
+    precision = (
+        true_positives
+        / (true_positives + false_positives)
+        * 100
+        if (true_positives + false_positives) > 0
+        else 0
+    )
 
-        conflict_accuracy = (
-            benchmark_detected_conflicts
-            / benchmark_expected_conflicts
-        ) * 100
+    recall = (
+        true_positives
+        / (true_positives + false_negatives)
+        * 100
+        if (true_positives + false_negatives) > 0
+        else 0
+    )
 
-        print(
-            f"Conflict detection rate:  "
-            f"{conflict_accuracy:.2f}%"
-        )
+    f1_score = (
+        2 * (precision * recall) / (precision + recall)
+        if (precision + recall) > 0
+        else 0
+    )
+
+    print(f"Benchmark tests:    {benchmark_total}")
+    print()
+    print(f"True Positives:     {true_positives}")
+    print(f"True Negatives:     {true_negatives}")
+    print(f"False Positives:    {false_positives}")
+    print(f"False Negatives:    {false_negatives}")
+    print()
+    print(f"Accuracy:           {accuracy:.2f}%")
+    print(f"Precision:          {precision:.2f}%")
+    print(f"Recall:             {recall:.2f}%")
+    print(f"F1 Score:           {f1_score:.2f}%")
 
 def main():
 

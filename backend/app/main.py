@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from app.models import EventType, PaymentEvent
 from app.state_engine import StateEngine
 from app.conflict_detector import ConflictDetector
@@ -9,6 +10,17 @@ app = FastAPI(
     title="Resolve",
     description="AI-powered payment state intelligence",
     version="0.1.0"
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 state_engine = StateEngine()
@@ -60,7 +72,10 @@ def process_event(event: PaymentEvent):
 
 
 @app.get("/payments/{payment_id}/analysis")
-def analyze_payment(payment_id: str):
+def analyze_payment(
+    payment_id: str,
+    include_ai: bool = True
+):
 
     rows = get_events(payment_id)
 
@@ -86,10 +101,37 @@ def analyze_payment(payment_id: str):
         state
     )
 
-    investigation = investigator.investigate(
-    events,
-    conflicts
-    )
+    if include_ai:
+        investigation = investigator.investigate(
+            events,
+            conflicts
+        )
+    else:
+        investigation = {
+            "summary": (
+                f"Detected {len(conflicts)} payment conflict(s)."
+                if conflicts
+                else "No payment inconsistencies detected."
+            ),
+            "root_cause": (
+                conflicts[0].message
+                if conflicts
+                else ""
+            ),
+            "evidence": [
+            {
+                "event_id": event.event_id,
+                "event_type": event.event_type.value,
+                "event_timestamp": (
+                    event.event_timestamp.isoformat()
+                )
+            }
+            for event in events
+        ],
+        "recommendation": (
+            "AI investigation skipped for benchmark."
+        )
+    }
 
     duplicates = state_engine.duplicate_events.get(
     payment_id,
