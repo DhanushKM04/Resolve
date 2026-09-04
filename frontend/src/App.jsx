@@ -467,8 +467,8 @@ function App() {
                       onClick={investigateWithAI}
                       disabled={loading}
                     >
-                      ✦ Investigating with AI…
-                      ⚠️Response time may vary depending on AI service latency.
+                       ✦ Investigate with AI… <br />
+                      <span>⚠️Response time may vary depending on AI service latency.</span>
                     </button>
                   </div>
 
