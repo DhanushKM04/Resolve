@@ -733,3 +733,25 @@ footer span:first-child {
     align-items: center;
   }
 }
+.ai-investigate-button {
+  margin-top: 18px;
+  padding: 12px 20px;
+  border: none;
+  border-radius: 10px;
+  font-weight: 700;
+  cursor: pointer;
+  background: #ffffff;
+  color: #111111;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.ai-investigate-button:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+.ai-investigate-button:disabled {
+  opacity: 0.6;
+  cursor: wait;
+  transform: none;
+}

@@ -8,6 +8,11 @@ function App() {
   const [analysis, setAnalysis] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [aiInvestigated, setAiInvestigated] = useState(false);
+
+  // --------------------------------------------------
+  // FAST DETERMINISTIC ANALYSIS
+  // --------------------------------------------------
 
   const analyzePayment = async () => {
     if (!paymentId.trim()) {
@@ -19,9 +24,13 @@ function App() {
     setError("");
     setAnalysis(null);
 
+    // IMPORTANT:
+    // Initial analysis does NOT call Gemini.
+    setAiInvestigated(false);
+
     try {
       const response = await fetch(
-        `${API_URL}/payments/${paymentId.trim()}/analysis`
+        `${API_URL}/payments/${paymentId.trim()}/analysis?include_ai=false`
       );
 
       if (!response.ok) {
@@ -29,7 +38,11 @@ function App() {
       }
 
       const data = await response.json();
+
       setAnalysis(data);
+
+      // DO NOT set aiInvestigated(true) here.
+      // AI has not been called yet.
     } catch (err) {
       setError(
         err.message === "Failed to fetch"
@@ -40,6 +53,46 @@ function App() {
       setLoading(false);
     }
   };
+
+  // --------------------------------------------------
+  // GEMINI INVESTIGATION
+  // --------------------------------------------------
+
+  const investigateWithAI = async () => {
+    if (!analysis) return;
+
+    setLoading(true);
+    setError("");
+
+    try {
+      const response = await fetch(
+        `${API_URL}/payments/${analysis.payment_id}/analysis?include_ai=true`
+      );
+
+      if (!response.ok) {
+        throw new Error("AI investigation failed.");
+      }
+
+      const data = await response.json();
+
+      setAnalysis(data);
+
+      // AI has now actually been called.
+      setAiInvestigated(true);
+    } catch (err) {
+      setError(
+        err.message === "Failed to fetch"
+          ? "Unable to connect to Resolve backend."
+          : err.message
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // --------------------------------------------------
+  // AI RESPONSE PARSER
+  // --------------------------------------------------
 
   const parseAI = (text = "") => {
     const summaryMatch = text.match(
@@ -67,6 +120,10 @@ function App() {
   );
 
   const hasConflict = analysis?.conflict_count > 0;
+
+  // --------------------------------------------------
+  // UI
+  // --------------------------------------------------
 
   return (
     <div className="app">
@@ -131,7 +188,9 @@ function App() {
                 onClick={analyzePayment}
                 disabled={loading}
               >
-                {loading ? "Investigating..." : "Analyze Payment"}
+                {loading
+                  ? "Analyzing..."
+                  : "Analyze Payment"}
               </button>
             </div>
 
@@ -169,11 +228,16 @@ function App() {
           <section className="loading-state">
             <div className="loader"></div>
 
-            <h3>Investigating payment...</h3>
+            <h3>
+              {aiInvestigated
+                ? "Investigating with Gemini..."
+                : "Analyzing payment..."}
+            </h3>
 
             <p>
-              Reconstructing event history and analyzing
-              payment state.
+              {aiInvestigated
+                ? "Gemini is investigating the detected payment inconsistency."
+                : "Reconstructing event history and analyzing payment state."}
             </p>
           </section>
         )}
@@ -279,7 +343,6 @@ function App() {
               </div>
 
               <div className="timeline">
-
                 {analysis.investigation?.evidence?.map(
                   (event, index) => (
                     <div
@@ -310,7 +373,6 @@ function App() {
                     </div>
                   )
                 )}
-
               </div>
             </section>
 
@@ -363,71 +425,125 @@ function App() {
             )}
 
             {/* AI INVESTIGATION */}
-            {analysis.investigation && (
-              <section className="panel ai-panel">
+            <section className="panel ai-panel">
 
-                <div className="ai-header">
-                  <div className="ai-title">
-                    <div className="ai-icon">
-                      ✦
-                    </div>
+              {!aiInvestigated ? (
+                <>
+                  <div className="ai-header">
 
-                    <div>
-                      <div className="section-eyebrow">
-                        AI-ASSISTED ANALYSIS
+                    <div className="ai-title">
+                      <div className="ai-icon">
+                        ✦
                       </div>
 
-                      <h3>Investigation</h3>
-                    </div>
-                  </div>
+                      <div>
+                        <div className="section-eyebrow">
+                          AI-ASSISTED ANALYSIS
+                        </div>
 
-                  <div className="ai-provider">
-                    Gemini
-                  </div>
-                </div>
-
-                <div className="ai-grid">
-
-                  <div className="ai-card">
-                    <div className="ai-card-label">
-                      SUMMARY
+                        <h3>Investigation</h3>
+                      </div>
                     </div>
 
-                    <p>{ai.summary}</p>
+                    <div className="ai-provider">
+                      Gemini
+                    </div>
+
                   </div>
 
                   <div className="ai-card">
                     <div className="ai-card-label">
-                      ROOT CAUSE
+                      READY FOR AI INVESTIGATION
                     </div>
 
                     <p>
-                      {ai.rootCause ||
-                        analysis.investigation.root_cause}
+                      Resolve detected a payment inconsistency.
+                      Run Gemini to investigate the evidence and
+                      identify a likely root cause.
                     </p>
+
+                    <button
+                      className="ai-investigate-button"
+                      onClick={investigateWithAI}
+                      disabled={loading}
+                    >
+                      ✦ Investigate with AI
+                    </button>
                   </div>
 
-                  <div className="ai-card recommendation-card">
-                    <div className="ai-card-label">
-                      RECOMMENDATION
+                  <div className="ai-disclaimer">
+                    <span>ⓘ</span>
+                    AI output is advisory. Resolve does not
+                    automatically execute payment actions.
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="ai-header">
+
+                    <div className="ai-title">
+                      <div className="ai-icon">
+                        ✦
+                      </div>
+
+                      <div>
+                        <div className="section-eyebrow">
+                          AI-ASSISTED ANALYSIS
+                        </div>
+
+                        <h3>Investigation</h3>
+                      </div>
                     </div>
 
-                    <p>
-                      {ai.recommendation ||
-                        analysis.investigation.recommendation}
-                    </p>
+                    <div className="ai-provider">
+                      Gemini
+                    </div>
+
                   </div>
 
-                </div>
+                  <div className="ai-grid">
 
-                <div className="ai-disclaimer">
-                  <span>ⓘ</span>
-                  AI output is advisory. Resolve does not
-                  automatically execute payment actions.
-                </div>
+                    <div className="ai-card">
+                      <div className="ai-card-label">
+                        SUMMARY
+                      </div>
 
-              </section>
-            )}
+                      <p>{ai.summary}</p>
+                    </div>
+
+                    <div className="ai-card">
+                      <div className="ai-card-label">
+                        ROOT CAUSE
+                      </div>
+
+                      <p>
+                        {ai.rootCause ||
+                          analysis.investigation.root_cause}
+                      </p>
+                    </div>
+
+                    <div className="ai-card recommendation-card">
+                      <div className="ai-card-label">
+                        RECOMMENDATION
+                      </div>
+
+                      <p>
+                        {ai.recommendation ||
+                          analysis.investigation.recommendation}
+                      </p>
+                    </div>
+
+                  </div>
+
+                  <div className="ai-disclaimer">
+                    <span>ⓘ</span>
+                    AI output is advisory. Resolve does not
+                    automatically execute payment actions.
+                  </div>
+                </>
+              )}
+
+            </section>
 
           </div>
         )}
