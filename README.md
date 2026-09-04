@@ -1,4 +1,5 @@
-# Resolve — AI-Powered Payment Event Investigation Engine
+# Resolve — AI-Powered Payment Event Investigation Engine 
+⚠️Link- http://16.192.216.64
 
 Resolve is an AI-powered payment event investigation engine that reconstructs payment state from event history, detects inconsistencies, and uses AI to explain the root cause.
 
@@ -215,12 +216,21 @@ The backend container is bound internally to the server and is not directly expo
 
 🌐 Live Demo
 
-Live application:
+⚠️Live application:
 
 http://16.192.216.64
 
-Example Payment
-pay_9acc18f0
+## 🔎 Live Demo Examples ⚠️⚠️⚠️
+
+| Payment ID     | Scenario                   | Result |
+| `pay_9acc18f0` | Order paid without capture | 🚨 HIGH |
+| `pay_a1be60a9` | Invalid capture → failure | 🚨 HIGH |
+| `pay_67889dbf` | Normal payment | ✅ No conflict |
+| `pay_aeeaa0fb` | Failed payment | ✅ No conflict |
+
+### AI Investigation
+
+Select a payment, analyze its event history, and optionally use **Investigate with AI** to generate a concise summary, root cause, evidence, and advisory recommendation.
 
 This example demonstrates:
 
