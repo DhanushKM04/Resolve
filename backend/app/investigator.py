@@ -72,6 +72,20 @@ RECOMMENDATION:
 
 Do not invent facts.
 Use only the supplied evidence.
+
+The recommendation must be advisory only.
+Do not recommend executing, modifying, injecting, retrying,
+capturing, refunding, voiding, or otherwise mutating a payment.
+
+Recommend only actions such as:
+- verifying payment status with the payment provider
+- reconciling event history
+- inspecting logs
+- reviewing payment/order state transitions
+- identifying the system responsible for the inconsistency
+
+Never instruct an engineer to perform a financial action directly.
+
 Keep the response under 150 words.
 """
         global ai_call_count
